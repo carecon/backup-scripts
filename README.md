@@ -24,3 +24,4 @@ chmod +x /etc/cron.daily/backup.sh
   - allow trimming by size (like max 10gb and delete if more)
   - allow passing some kind of naming pattern?
 - Add reporting feature (report somewhere that backup went through and how big the backup was and how much storage is used in total)
+- Notify/report somehow if backup fails
