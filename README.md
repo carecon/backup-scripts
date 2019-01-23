@@ -7,6 +7,17 @@ curl -fsSL https://raw.githubusercontent.com/carecon/backup-scripts/master/backu
   -i=files.txt -u=username -p=password -d=/my.server.com
 ```
 
+Or install it as a daily cron job
+```
+yum install -y curl
+tee /etc/cron.daily/backup.sh <<-'EOF'
+curl -fsSL https://raw.githubusercontent.com/carecon/backup-scripts/master/backup-hetzner.sh | sh -s -- \
+  -i=/root/backup-files.txt -u=??? -p=??? -d=/wiki.pboos.ch
+EOF
+chmod +x /etc/cron.daily/backup.sh
+
+```
+
 ## TODO
 - Trim options
   - current default is: saving one daily (for a week), one weekly (for a month), one monthly (for a year), one yearly (forever)
