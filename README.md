@@ -9,15 +9,16 @@ curl -fsSL https://raw.githubusercontent.com/carecon/backup-scripts/master/backu
 
 Or install it as a daily cron job
 ```
-yum install -y curl
+curl https://raw.githubusercontent.com/carecon/backup-scripts/master/backup-hetzner.sh -o /usr/local/bin/backup-hetzner.sh
+chmod +x /usr/local/bin/backup-hetzner.sh
+
 tee /etc/cron.daily/backup.sh <<-'EOF'
 #!/bin/bash
 
-curl -fsSL https://raw.githubusercontent.com/carecon/backup-scripts/master/backup-hetzner.sh | sh -s -- \
+/usr/local/bin/backup-hetzner.sh \
   -i=/root/backup-files.txt -u=??? -p=??? -d=/remote/backup/folder
 EOF
 chmod +x /etc/cron.daily/backup.sh
-
 ```
 
 ## TODO
