@@ -11,8 +11,10 @@ Or install it as a daily cron job
 ```
 yum install -y curl
 tee /etc/cron.daily/backup.sh <<-'EOF'
+#!/bin/bash
+
 curl -fsSL https://raw.githubusercontent.com/carecon/backup-scripts/master/backup-hetzner.sh | sh -s -- \
-  -i=/root/backup-files.txt -u=??? -p=??? -d=/wiki.pboos.ch
+  -i=/root/backup-files.txt -u=??? -p=??? -d=/remote/backup/folder
 EOF
 chmod +x /etc/cron.daily/backup.sh
 
