@@ -30,6 +30,22 @@ do
             INPUT="${i#*=}"
             shift # past argument=value
             ;;
+        -f=*|--files=*)
+            FILES="${i#*=}"
+            shift # past argument=value
+            ;;
+        --postgres-user=*)
+            POSTGRES_USER="${i#*=}"
+            shift # past argument=value
+            ;;
+        --postgres-pass=*)
+            POSTGRES_PASS="${i#*=}"
+            shift # past argument=value
+            ;;
+        --postgres-db=*)
+            POSTGRES_DB="${i#*=}"
+            shift # past argument=value
+            ;;
         -t=*|--trim=*)
             TRIM="${i#*=}"
             shift # past argument=value
@@ -44,20 +60,29 @@ do
     esac
 done
 
-if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_PASS" ] || [ -z "$INPUT" ] || [ -z "$REMOTE_DIRECTORY" ]; then
-    print_usage
-    exit 0
+if [ -n "$INPUT" ]; then
+    if [ ! -f $INPUT ]; then
+        echo "Could not find $INPUT"
+        exit 1
+    fi
+    FILES=$(cat $INPUT)
 fi
 
-if [ ! -f $INPUT ]; then
-    echo "Could not find $INPUT"
-    exit 0
+if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_PASS" ] || [ -z "$REMOTE_DIRECTORY" ]; then
+    print_usage
+    exit 1
 fi
+
+if [ -z "$FILES" ] && [ -z "$POSTGRES_USER" ]; then
+    print_usage
+    exit 1
+fi
+
 
 STORAGE_BOX_USER=$REMOTE_USER
 STORAGE_BOX_PASS=$REMOTE_PASS
 STORAGE_BOX_HOST="${REMOTE_HOST:-$STORAGE_BOX_USER.your-backup.de}"
-FILES=$(cat $INPUT)
+TSTAMP=`date "+%Y%m%d-%H%M"`
 
 #####
 # setup (TODO only do this once! check how though?)
@@ -66,10 +91,28 @@ yum install -y sshpass
 ssh-keygen -R $STORAGE_BOX_HOST || echo 'Host was not yet added'
 ssh-keyscan -H $STORAGE_BOX_HOST >> ~/.ssh/known_hosts
 
+# OPTIONAL #########################################################################
+
+#####
+# Optional Postgres
+#####
+FILES_TO_DELETE=""
+
+if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_PASS" ] && [ -n "$POSTGRES_DB" ]; then
+    BACKUP_FILE_POSTGRES=/tmp/backup-$TSTAMP-postgres-$POSTGRES_DB.backup
+    printf -v FILES "%s $BACKUP_FILE_POSTGRES" "$FILES"
+    printf -v FILES_TO_DELETE "%s $BACKUP_FILE_POSTGRES" "$FILES_TO_DELETE"
+
+    export PGPASSWORD=$POSTGRES_PASS
+    pg_dump -h 127.0.0.1 -U $POSTGRES_USER -d $POSTGRES_DB -Fc > $BACKUP_FILE_POSTGRES
+    # pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB ~/insurtec.backup
+fi
+
+####################################################################################
+
 #####
 # Create backup file
 #####
-TSTAMP=`date "+%Y%m%d-%H%M"`
 BACKUP_FILE=/tmp/backup-$TSTAMP.tar.gz
 
 tar -czf $BACKUP_FILE $FILES
@@ -92,3 +135,7 @@ backup $REMOTE_FILE_MONTHLY
 # Clean up
 #####
 rm $BACKUP_FILE
+
+if [ -n "$FILES_TO_DELETE" ]; then
+     rm -rf $FILES_TO_DELETE
+fi
