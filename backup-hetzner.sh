@@ -34,6 +34,14 @@ do
             FILES="${i#*=}"
             shift # past argument=value
             ;;
+        -t=*|--trim=*)
+            TRIM="${i#*=}"
+            shift # past argument=value
+            ;;
+        -h|--help)
+            print_usage
+            exit 0
+            ;;
         --postgres-user=*)
             POSTGRES_USER="${i#*=}"
             shift # past argument=value
@@ -46,13 +54,17 @@ do
             POSTGRES_DB="${i#*=}"
             shift # past argument=value
             ;;
-        -t=*|--trim=*)
-            TRIM="${i#*=}"
+        --mysql-user=*)
+            MYSQL_USER="${i#*=}"
             shift # past argument=value
             ;;
-        -h|--help)
-            print_usage
-            exit 0
+        --mysql-pass=*)
+            MYSQL_PASS="${i#*=}"
+            shift # past argument=value
+            ;;
+        --mysql-db=*)
+            MYSQL_DB="${i#*=}"
+            shift # past argument=value
             ;;
         *)
             # unknown option
@@ -93,11 +105,11 @@ ssh-keyscan -H $STORAGE_BOX_HOST >> ~/.ssh/known_hosts
 
 # OPTIONAL #########################################################################
 
+FILES_TO_DELETE=""
+
 #####
 # Optional Postgres
 #####
-FILES_TO_DELETE=""
-
 if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_PASS" ] && [ -n "$POSTGRES_DB" ]; then
     BACKUP_FILE_POSTGRES=/tmp/backup-$TSTAMP-postgres-$POSTGRES_DB.backup
     printf -v FILES "%s $BACKUP_FILE_POSTGRES" "$FILES"
@@ -106,6 +118,23 @@ if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_PASS" ] && [ -n "$POSTGRES_DB" ]; 
     export PGPASSWORD=$POSTGRES_PASS
     pg_dump -h 127.0.0.1 -U $POSTGRES_USER -d $POSTGRES_DB -Fc > $BACKUP_FILE_POSTGRES
     # pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB ~/insurtec.backup
+fi
+
+#####
+# Optional MySQL
+#####
+if [ -n "$MYSQL_USER" ] && [ -n "$MYSQL_PASS" ]; then
+    BACKUP_FILE_MYSQL=/tmp/backup-$TSTAMP-mysql-${MYSQL_DB:-all-databases}.sql
+    printf -v FILES "%s $BACKUP_FILE_MYSQL" "$FILES"
+    printf -v FILES_TO_DELETE "%s $BACKUP_FILE_MYSQL" "$FILES_TO_DELETE"
+
+    if [ -n "$MYSQL_DB" ]; then
+        mysqldump -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB > $BACKUP_FILE_MYSQL
+    else
+        mysqldump -u $MYSQL_USER -p$MYSQL_PASS --all-databases > $BACKUP_FILE_MYSQL
+    fi
+    
+    # mysql -u <user> -p < backup.sql
 fi
 
 ####################################################################################
