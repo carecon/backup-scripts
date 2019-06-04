@@ -85,7 +85,7 @@ if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_PASS" ] || [ -z "$REMOTE_DIRECTORY" ];
     exit 1
 fi
 
-if [ -z "$FILES" ] && [ -z "$POSTGRES_USER" ]; then
+if [ -z "$FILES" ] && [ -z "$POSTGRES_USER" ] && [ -z "$MYSQL_USER" ]; then
     print_usage
     exit 1
 fi
