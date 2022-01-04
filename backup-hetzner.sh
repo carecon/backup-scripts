@@ -130,7 +130,10 @@ if [ -n "$POSTGRES_CONTAINER" ] && [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_DB
     printf -v PATHS_TO_DELETE "%s $BACKUP_FILE_POSTGRES" "$PATHS_TO_DELETE"
 
     docker exec $POSTGRES_CONTAINER pg_dump -U $POSTGRES_USER $POSTGRES_DB -Fc > $BACKUP_FILE_POSTGRES
-    # Restore with: pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB ~/insurtec.backup
+
+    # Restore with:
+    # createdb -h localhost -U postgres -T template0 $POSTGRES_DB
+    # pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB $BACKUP_FILE_POSTGRES
 fi
 
 #####
