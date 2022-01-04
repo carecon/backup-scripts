@@ -7,8 +7,27 @@
 # 
 print_usage() {
     echo "Usage:"
-    echo "  ./backup.sh -h=my.sftp-server.com -u=username -p=password -d=/backup/site.com -p=\"/data /etc\""
+    echo "  ./backup.sh -h=my.sftp-server.com -u=username -p=password -d=/backup/site.com -p=/data,/etc"
     echo "  ./backup.sh -h=my.sftp-server.com -u=username -p=password -d=/backup/site.com -i=paths-to-backup.txt"
+    
+    echo "-h|--help                                  prints out the help"
+    
+    echo "-h=[host]|--host=[host]                    sftp backup host"
+    echo "-u=[user]|--user=[user]                    sftp backup user"
+    echo "-p=[pass]|--pass=[pass]                    sftp backup password"
+    echo "-d=[directory]|--directory=[directory]     sftp backup directory"
+    echo ""
+    echo "-i=[input-file]|--input=[input-file]       file containing paths to backup"
+    echo "-p=[paths]|--paths=[paths].                paths to backup separated by comma"
+    echo "-e=[exclusions]|--exclude=[exclusions]     paths to be excluded from backup separated by comma"
+    echo ""
+    echo "--postgres-container=[container]           the postgres docker container"
+    echo "--postgres-user=[user]                     the postgres user"
+    echo "--postgres-db=[db]                         the postgres database to be backed up"
+    echo ""
+    echo "--mysql-container=[container]              the mysql docker container"
+    echo "--mysql-user=[user]                        the mysql user"
+    echo "--mysql-db=[db]                            the mysql database to be backed up"
 }
 
 for i in "$@"
@@ -35,7 +54,11 @@ do
             shift # past argument=value
             ;;
         -p=*|--paths=*)
-            PATHS="${i#*=}"
+            IFS=',' read -ra PATHS <<< "${i#*=}"
+            shift # past argument=value
+            ;;
+        -e=*|--exclude=*)
+            IFS=',' read -ra EXCLUDED_PATHS <<< "${i#*=}"
             shift # past argument=value
             ;;
         -t=*|--trim=*)
@@ -159,7 +182,11 @@ fi
 #####
 BACKUP_FILE=/tmp/backup-$TSTAMP.tar.gz
 
-tar -czf $BACKUP_FILE $PATHS
+tar_exclude_options=()
+for exclude in "${EXCLUDED_PATHS[@]}"; do
+  tar_exclude_options+=(--exclude="$exclude")
+done
+tar -czf $BACKUP_FILE ${tar_exclude_options[@]} ${PATHS[@]}
 
 #####
 # Copy to backup storage
