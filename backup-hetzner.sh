@@ -97,11 +97,26 @@ STORAGE_BOX_HOST="${REMOTE_HOST:-$STORAGE_BOX_USER.your-backup.de}"
 TSTAMP=`date "+%Y%m%d-%H%M"`
 
 #####
-# setup (TODO only do this once! check how though?)
+# Setup (sshpass, known_hosts)
 #####
-yum install -y sshpass
-ssh-keygen -R $STORAGE_BOX_HOST || echo 'Host was not yet added'
-ssh-keyscan -H $STORAGE_BOX_HOST >> ~/.ssh/known_hosts
+if ; then
+  yum install -y sshpass
+fi
+
+
+if ! command -v sshpass &> /dev/null; then
+  if command -v apt &> /dev/null; then
+    apt install -y sshpass
+  fi
+  if command -v yum &> /dev/null; then
+    yum install -y sshpass
+  fi
+fi
+
+if ! ssh-keygen -F $STORAGE_BOX_HOST > /dev/null 2>&1 ; then
+  ssh-keygen -R $STORAGE_BOX_HOST || echo 'Host was not yet added'
+  ssh-keyscan -H $STORAGE_BOX_HOST >> ~/.ssh/known_hosts
+fi
 
 # OPTIONAL #########################################################################
 
