@@ -99,11 +99,6 @@ TSTAMP=`date "+%Y%m%d-%H%M"`
 #####
 # Setup (sshpass, known_hosts)
 #####
-if ; then
-  yum install -y sshpass
-fi
-
-
 if ! command -v sshpass &> /dev/null; then
   if command -v apt &> /dev/null; then
     apt install -y sshpass
@@ -114,7 +109,7 @@ if ! command -v sshpass &> /dev/null; then
 fi
 
 if ! ssh-keygen -F $STORAGE_BOX_HOST > /dev/null 2>&1 ; then
-  ssh-keygen -R $STORAGE_BOX_HOST || echo 'Host was not yet added'
+  # To remove old one use: ssh-keygen -R $STORAGE_BOX_HOST
   ssh-keyscan -H $STORAGE_BOX_HOST >> ~/.ssh/known_hosts
 fi
 
