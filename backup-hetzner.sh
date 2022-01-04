@@ -1,10 +1,14 @@
 #!/bin/bash
 
-# Usage local:
-# curl -fsSL https://raw.githubusercontent.com/carecon/backup-scripts/master/backup-hetzner.sh | sh -s -- -i=files.txt -u=username -p=password -d=/my.server.com
-
+# Installation local:
+# curl https://raw.githubusercontent.com/carecon/backup-scripts/master/backup-hetzner.sh --output backup.sh
+# chmod +x backup.sh
+# 
+# 
 print_usage() {
-    echo "Usage: ./backup.sh -i=files.txt -u=user123 -p=password -d=/backup/site.com"
+    echo "Usage:"
+    echo "  ./backup.sh -h=my.sftp-server.com -u=username -p=password -d=/backup/site.com -p=\"/data /etc\""
+    echo "  ./backup.sh -h=my.sftp-server.com -u=username -p=password -d=/backup/site.com -i=paths-to-backup.txt"
 }
 
 for i in "$@"
@@ -30,8 +34,8 @@ do
             INPUT="${i#*=}"
             shift # past argument=value
             ;;
-        -f=*|--files=*)
-            FILES="${i#*=}"
+        -p=*|--paths=*)
+            PATHS="${i#*=}"
             shift # past argument=value
             ;;
         -t=*|--trim=*)
@@ -42,24 +46,24 @@ do
             print_usage
             exit 0
             ;;
-        --postgres-user=*)
-            POSTGRES_USER="${i#*=}"
+        --postgres-container=*)
+            POSTGRES_CONTAINER="${i#*=}"
             shift # past argument=value
             ;;
-        --postgres-pass=*)
-            POSTGRES_PASS="${i#*=}"
+        --postgres-user=*)
+            POSTGRES_USER="${i#*=}"
             shift # past argument=value
             ;;
         --postgres-db=*)
             POSTGRES_DB="${i#*=}"
             shift # past argument=value
             ;;
-        --mysql-user=*)
-            MYSQL_USER="${i#*=}"
+        --mysql-container=*)
+            MYSQL_CONTAINER="${i#*=}"
             shift # past argument=value
             ;;
-        --mysql-pass=*)
-            MYSQL_PASS="${i#*=}"
+        --mysql-user=*)
+            MYSQL_USER="${i#*=}"
             shift # past argument=value
             ;;
         --mysql-db=*)
@@ -77,7 +81,7 @@ if [ -n "$INPUT" ]; then
         echo "Could not find $INPUT"
         exit 1
     fi
-    FILES=$(cat $INPUT)
+    PATHS=$(cat $INPUT)
 fi
 
 if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_PASS" ] || [ -z "$REMOTE_DIRECTORY" ]; then
@@ -85,7 +89,7 @@ if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_PASS" ] || [ -z "$REMOTE_DIRECTORY" ];
     exit 1
 fi
 
-if [ -z "$FILES" ] && [ -z "$POSTGRES_USER" ] && [ -z "$MYSQL_USER" ]; then
+if [ -z "$PATHS" ] && [ -z "$POSTGRES_USER" ] && [ -z "$MYSQL_USER" ]; then
     print_usage
     exit 1
 fi
@@ -115,36 +119,34 @@ fi
 
 # OPTIONAL #########################################################################
 
-FILES_TO_DELETE=""
+PATHS_TO_DELETE=""
 
 #####
 # Optional Postgres
 #####
-if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_PASS" ] && [ -n "$POSTGRES_DB" ]; then
+if [ -n "$POSTGRES_CONTAINER" ] && [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_DB" ]; then
     BACKUP_FILE_POSTGRES=/tmp/backup-$TSTAMP-postgres-$POSTGRES_DB.backup
-    printf -v FILES "%s $BACKUP_FILE_POSTGRES" "$FILES"
-    printf -v FILES_TO_DELETE "%s $BACKUP_FILE_POSTGRES" "$FILES_TO_DELETE"
+    printf -v PATHS "%s $BACKUP_FILE_POSTGRES" "$PATHS"
+    printf -v PATHS_TO_DELETE "%s $BACKUP_FILE_POSTGRES" "$PATHS_TO_DELETE"
 
-    export PGPASSWORD=$POSTGRES_PASS
-    pg_dump -h 127.0.0.1 -U $POSTGRES_USER -d $POSTGRES_DB -Fc > $BACKUP_FILE_POSTGRES
-    # pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB ~/insurtec.backup
+    docker exec $POSTGRES_CONTAINER pg_dump -U $POSTGRES_USER $POSTGRES_DB -Fc > $BACKUP_FILE_POSTGRES
+    # Restore with: pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB ~/insurtec.backup
 fi
 
 #####
 # Optional MySQL
 #####
-if [ -n "$MYSQL_USER" ] && [ -n "$MYSQL_PASS" ]; then
+if [ -n "$MYSQL_CONTAINER" ] && [ -n "$MYSQL_USER" ]; then
     BACKUP_FILE_MYSQL=/tmp/backup-$TSTAMP-mysql-${MYSQL_DB:-all-databases}.sql
-    printf -v FILES "%s $BACKUP_FILE_MYSQL" "$FILES"
-    printf -v FILES_TO_DELETE "%s $BACKUP_FILE_MYSQL" "$FILES_TO_DELETE"
+    printf -v PATHS "%s $BACKUP_FILE_MYSQL" "$PATHS"
+    printf -v PATHS_TO_DELETE "%s $BACKUP_FILE_MYSQL" "$PATHS_TO_DELETE"
 
     if [ -n "$MYSQL_DB" ]; then
-        mysqldump -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB > $BACKUP_FILE_MYSQL
+        docker exec $MYSQL_CONTAINER mysqldump -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB > $BACKUP_FILE_MYSQL
     else
-        mysqldump -u $MYSQL_USER -p$MYSQL_PASS --all-databases > $BACKUP_FILE_MYSQL
+        docker exec $MYSQL_CONTAINER mysqldump -u $MYSQL_USER -p$MYSQL_PASS --all-databases > $BACKUP_FILE_MYSQL
     fi
-    
-    # mysql -u <user> -p < backup.sql
+    # Restore with: mysql -u <user> -p < backup.sql
 fi
 
 ####################################################################################
@@ -154,7 +156,7 @@ fi
 #####
 BACKUP_FILE=/tmp/backup-$TSTAMP.tar.gz
 
-tar -czf $BACKUP_FILE $FILES
+tar -czf $BACKUP_FILE $PATHS
 
 #####
 # Copy to backup storage
@@ -175,6 +177,6 @@ backup $REMOTE_FILE_MONTHLY
 #####
 rm $BACKUP_FILE
 
-if [ -n "$FILES_TO_DELETE" ]; then
-     rm -rf $FILES_TO_DELETE
+if [ -n "$PATHS_TO_DELETE" ]; then
+     rm -rf $PATHS_TO_DELETE
 fi
