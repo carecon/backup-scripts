@@ -126,13 +126,17 @@ TSTAMP=`date "+%Y%m%d-%H%M"`
 #####
 # Setup (sshpass, known_hosts)
 #####
-if ! command -v sshpass &> /dev/null; then
+install_package () {
   if command -v apt &> /dev/null; then
-    apt install -y sshpass
+    apt install -y $1
   fi
   if command -v yum &> /dev/null; then
-    yum install -y sshpass
-  fi
+    yum install -y $1
+  fi 
+}
+
+if ! command -v sshpass &> /dev/null; then
+  install_package sshpass
 fi
 
 if ! ssh-keygen -F $STORAGE_BOX_HOST > /dev/null 2>&1 ; then
@@ -189,11 +193,24 @@ done
 tar -czf $BACKUP_FILE ${tar_exclude_options[@]} ${PATHS[@]}
 
 #####
+# Encrypt backup (optional)
+#####
+
+if [ -n "$ENCRYPTION_PASSWORD" ]; then
+  if ! command -v gpg &> /dev/null; then
+    install_package gpg
+  fi
+  ENCRYPTED_BACKUP_FILE=$BACKUP_FILE.gpg
+  echo "$ENCRYPTION_PASSWORD" | gpg --batch --yes --passphrase-fd 0 -o "$ENCRYPTED_BACKUP_FILE" -c $BACKUP_FILE
+  BACKUP_FILE=$ENCRYPTED_BACKUP_FILE
+fi
+
+#####
 # Copy to backup storage
 #####
-REMOTE_FILE_DAILY=backup-daily-`date +%A`.tar.gz
-REMOTE_FILE_WEEKLY=backup-weekly-$((($(date +%-d)-1)/7+1)).tar.gz
-REMOTE_FILE_MONTHLY=backup-monthly-`date +%B`.tar.gz
+REMOTE_FILE_DAILY=backup-daily-`date +%A`.${BACKUP_FILE#*.}
+REMOTE_FILE_WEEKLY=backup-weekly-$((($(date +%-d)-1)/7+1)).${BACKUP_FILE#*.}
+REMOTE_FILE_MONTHLY=backup-monthly-`date +%B`.${BACKUP_FILE#*.}
 
 backup () {
   sshpass -p "$STORAGE_BOX_PASS" scp $BACKUP_FILE $STORAGE_BOX_USER@$STORAGE_BOX_HOST:$REMOTE_DIRECTORY/$1
