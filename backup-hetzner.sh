@@ -159,6 +159,7 @@ if [ -n "$POSTGRES_CONTAINER" ] && [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_DB
     docker exec $POSTGRES_CONTAINER pg_dump -U $POSTGRES_USER $POSTGRES_DB -Fc > $BACKUP_FILE_POSTGRES
 
     # Restore with:
+    # docker exec -i $POSTGRES_CONTAINER pg_restore -U postgres --clean -d $POSTGRES_DB < $BACKUP_FILE_POSTGRES
     # createdb -h localhost -U postgres -T template0 $POSTGRES_DB
     # pg_restore -h localhost -U $POSTGRES_USER --create --clean -d $POSTGRES_DB $BACKUP_FILE_POSTGRES
 fi
